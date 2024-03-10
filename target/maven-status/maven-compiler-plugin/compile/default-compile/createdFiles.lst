@@ -3,6 +3,7 @@ com\arlias\quarkus_crudify\input_builder\PasswordHashMD5Builder.class
 com\arlias\quarkus_crudify\service\CRUDManager.class
 com\arlias\quarkus_crudify\input_builder\common\LogicSupplier.class
 com\arlias\quarkus_crudify\util\annotations\BuildInputs.class
+com\arlias\quarkus_crudify\util\NullFillerBeanUtilsBean.class
 com\arlias\quarkus_crudify\configuration\ArliasThreadFactory.class
 com\arlias\quarkus_crudify\service\PanacheEntityManager.class
 com\arlias\quarkus_crudify\util\annotations\CrudLogics.class

@@ -1,11 +1,15 @@
 package com.arlias.quarkus_crudify.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.JwtBuilder;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureAlgorithm;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import javax.crypto.spec.SecretKeySpec;
 import javax.enterprise.context.ApplicationScoped;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -17,7 +21,7 @@ public class JWTGenerator {
     @ConfigProperty(name = "crudify.server.jwt.secret", defaultValue = "2e408df8-13a4-419b-813c-d2e326102dd7-2e408df8-13a4-419b-813c-d2e326102dd7-2e408df8-13a4-419b-813c-d2e326102dd7")
     String secret;
 
-    public synchronized String getToken(Object data, String...excludedKeys){
+    public synchronized String getToken(Object data, String... excludedKeys) {
         Date now = new Date();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
@@ -29,14 +33,14 @@ public class JWTGenerator {
         LinkedHashMap<String, Object> dataParsed = new ObjectMapper().convertValue(data, LinkedHashMap.class);
 
         for (String key : dataParsed.keySet()) {
-            if(!List.of(excludedKeys).contains(key))
+            if (!List.of(excludedKeys).contains(key))
                 jwtBuilder.claim(key, dataParsed.get(key));
         }
 
         return jwtBuilder.compact();
     }
 
-    public synchronized String getToken(Object data, Long expireAfter, String...excludedKeys){
+    public synchronized String getToken(Object data, Long expireAfter, String... excludedKeys) {
         Date now = new Date();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
@@ -44,9 +48,9 @@ public class JWTGenerator {
                 .issuedAt(Date.from(Instant.ofEpochSecond(now.getTime())))
                 .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS512);
 
-        if(expireAfter == null){
-                jwtBuilder = jwtBuilder.expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 1800000L)));
-        } else if(expireAfter == -1){
+        if (expireAfter == null) {
+            jwtBuilder = jwtBuilder.expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 1800000L)));
+        } else if (expireAfter == -1) {
             jwtBuilder = jwtBuilder.expiration(Date.from(Instant.ofEpochSecond(now.getTime() + Long.MAX_VALUE)));
         } else {
             jwtBuilder = jwtBuilder.expiration(Date.from(Instant.ofEpochSecond(now.getTime() + expireAfter)));
@@ -55,7 +59,7 @@ public class JWTGenerator {
         LinkedHashMap<String, Object> dataParsed = new ObjectMapper().convertValue(data, LinkedHashMap.class);
 
         for (String key : dataParsed.keySet()) {
-            if(!List.of(excludedKeys).contains(key))
+            if (!List.of(excludedKeys).contains(key))
                 jwtBuilder.claim(key, dataParsed.get(key));
         }
 
@@ -63,7 +67,7 @@ public class JWTGenerator {
     }
 
 
-    public synchronized String getGuestToken(){
+    public synchronized String getGuestToken() {
         Date now = new Date();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
@@ -78,7 +82,7 @@ public class JWTGenerator {
     }
 
 
-    public synchronized String getGuestToken(Object data, String...excludedKeys){
+    public synchronized String getGuestToken(Object data, String... excludedKeys) {
         Date now = new Date();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
@@ -90,7 +94,7 @@ public class JWTGenerator {
         LinkedHashMap<String, Object> dataParsed = new ObjectMapper().convertValue(data, LinkedHashMap.class);
 
         for (String key : dataParsed.keySet()) {
-            if(!List.of(excludedKeys).contains(key))
+            if (!List.of(excludedKeys).contains(key))
                 jwtBuilder.claim(key, dataParsed.get(key));
         }
 
@@ -98,7 +102,7 @@ public class JWTGenerator {
     }
 
 
-    public synchronized String getSimpleToken(){
+    public synchronized String getSimpleToken() {
         Date now = new Date();
 
         return Jwts.builder()
@@ -107,6 +111,32 @@ public class JWTGenerator {
                 .issuedAt(now)
                 .expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 1800000L)))
                 .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS512).compact();
+    }
+
+
+    public synchronized Jwt decode(String key, String token) {
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), Jwts.SIG.HS512.getId());
+        JwtParser jwtParser = Jwts.parser()
+                .verifyWith(secretKeySpec)
+                .build();
+        try {
+            return jwtParser.parse(token);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public synchronized boolean isValidToken(String key, String token) {
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), Jwts.SIG.HS512.getId());
+        JwtParser jwtParser = Jwts.parser()
+                .verifyWith(secretKeySpec)
+                .build();
+        try {
+            jwtParser.parse(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 }

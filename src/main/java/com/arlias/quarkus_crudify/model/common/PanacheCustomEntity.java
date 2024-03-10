@@ -4,6 +4,7 @@ import com.arlias.quarkus_crudify.exception.CustomException;
 import com.arlias.quarkus_crudify.input_builder.BooleanConstantFalseBuilder;
 import com.arlias.quarkus_crudify.service.TransactionsEnvs;
 import com.arlias.quarkus_crudify.util.NullAwareBeanUtilsBean;
+import com.arlias.quarkus_crudify.util.NullFillerBeanUtilsBean;
 import com.arlias.quarkus_crudify.util.annotations.BuildInput;
 import com.arlias.quarkus_crudify.util.annotations.IgnoreInput;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
@@ -72,9 +73,31 @@ public class PanacheCustomEntity extends PanacheEntityBase {
         return this.getClass().getSimpleName();
     }
 
+    public void rawCopy(PanacheCustomEntity insert) {
+
+        BeanUtilsBean rawCopy = new BeanUtilsBean();
+        try {
+            rawCopy.copyProperties(this, insert);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+
+    }
+
     public void copy(PanacheCustomEntity insert) {
 
         BeanUtilsBean notNull = new NullAwareBeanUtilsBean();
+        try {
+            notNull.copyProperties(this, insert);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void fill(PanacheCustomEntity insert) {
+
+        BeanUtilsBean notNull = new NullFillerBeanUtilsBean();
         try {
             notNull.copyProperties(this, insert);
         } catch (IllegalAccessException | InvocationTargetException e) {

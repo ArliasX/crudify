@@ -4,6 +4,7 @@ import com.arlias.quarkus_crudify.configuration.ArliasThreadFactory;
 import com.arlias.quarkus_crudify.exception.CustomException;
 import io.quarkus.hibernate.orm.panache.runtime.JpaOperations;
 import io.quarkus.vertx.web.RoutingExchange;
+import io.vertx.core.http.HttpServerRequest;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -40,6 +41,24 @@ public class TransactionsEnvs {
         log.debug("Operation [{}] INITIALIZED: Request {}", uuid, ex.request().uri());
         instance.transactionsEnvMaps.put(uuid, EnvMap.autoInitializeFromRoutingContext(ex, uuid));
         return (ExecutorService) instance.transactionsEnvMaps.get(uuid).transactionsEnvs.get(THREAD_POOL);
+    }
+
+    public static synchronized ExecutorService initAsyncDirectContext(HttpServerRequest ex){
+        if(instance == null){
+            instance = new TransactionsEnvs();
+        }
+        String uuid = UUID.randomUUID().toString();
+        log.debug("Operation [{}] INITIALIZED: Request {}", uuid, ex.uri());
+        instance.transactionsEnvMaps.put(uuid, EnvMap.autoInitializeFromHttpRequest(ex, uuid));
+        return (ExecutorService) instance.transactionsEnvMaps.get(uuid).transactionsEnvs.get(THREAD_POOL);
+    }
+
+    public static synchronized void initSynchronousContext(String httpMethod){
+        if(instance == null){
+            instance = new TransactionsEnvs();
+        }
+        log.debug("Operation [{}] INITIALIZED: Request {}", Thread.currentThread().getThreadGroup().getName(), httpMethod);
+        instance.transactionsEnvMaps.put(Thread.currentThread().getThreadGroup().getName(), EnvMap.autoInitializeFromSynchronousContext(httpMethod));
     }
 
     public static synchronized void clearCurrentThreadEnvs(){
@@ -84,6 +103,28 @@ public class TransactionsEnvs {
             envMap.transactionsEnvs.put(CONTEXT, ex.context());
             envMap.transactionsEnvs.put(JPA_CONTEXT, new JpaOperations());
             envMap.transactionsEnvs.put(THREAD_POOL, Executors.newCachedThreadPool(new ArliasThreadFactory(uuid)));
+            return envMap;
+        }
+
+        static synchronized EnvMap autoInitializeFromHttpRequest(HttpServerRequest ex, String uuid){
+            EnvMap envMap = new EnvMap();
+            envMap.transactionsEnvs.put(RESPONSE_FIELD, new ArrayList<>(ex.params().getAll(RESPONSE_FIELD)));
+            envMap.transactionsEnvs.put(HTTP_METHOD, ex.method().name());
+            envMap.transactionsEnvs.put(REQUEST_CONTEXT, null);
+            envMap.transactionsEnvs.put(CONTEXT, null);
+            envMap.transactionsEnvs.put(JPA_CONTEXT, new JpaOperations());
+            envMap.transactionsEnvs.put(THREAD_POOL, Executors.newCachedThreadPool(new ArliasThreadFactory(uuid)));
+            return envMap;
+        }
+
+        static synchronized EnvMap autoInitializeFromSynchronousContext(String httpMethod){
+            EnvMap envMap = new EnvMap();
+            envMap.transactionsEnvs.put(RESPONSE_FIELD, new ArrayList<>());
+            envMap.transactionsEnvs.put(HTTP_METHOD, httpMethod);
+            envMap.transactionsEnvs.put(REQUEST_CONTEXT, null);
+            envMap.transactionsEnvs.put(CONTEXT, null);
+            envMap.transactionsEnvs.put(JPA_CONTEXT, new JpaOperations());
+            envMap.transactionsEnvs.put(THREAD_POOL, null);
             return envMap;
         }
 

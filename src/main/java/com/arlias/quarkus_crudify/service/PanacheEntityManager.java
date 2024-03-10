@@ -147,6 +147,42 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                 .collect(Collectors.toList());
     }
 
+    public List<ENTITY> bulkSave(List<LinkedHashMap<String, Object>> input) throws CustomException {
+        return bulkSave(input.stream());
+    }
+
+    public List<ENTITY> bulkSave(Stream<LinkedHashMap<String, Object>> input) throws CustomException{
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        List<ENTITY> entities = input.sequential()
+                .map(this::toENTITY)
+                .peek(e -> performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, e))
+                .collect(Collectors.toList());
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        try {
+            transaction.begin();
+            jpaContext.persist(entities);
+            jpaContext.flush(entities);
+            entities = entities.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            transaction.commit();
+            entities = entities.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            return entities;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
     public ENTITY save(LinkedHashMap<String, Object> input) throws CustomException{
         JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
         ENTITY entity = toENTITY(input);
@@ -264,6 +300,121 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         return null;
     }
 
+    public ENTITY rawUpdate(Long id, ENTITY parsedInput) {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, parsedInput);
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        try {
+            transaction.begin();
+            ENTITY entity = findById(id);
+            if (entity == null) {
+                CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
+            }
+            entity.rawCopy(parsedInput);
+            jpaContext.persist(entity);
+            jpaContext.flush(entity);
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
+            transaction.commit();
+            performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
+            return entity;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
+    public ENTITY rawUpdate(Long id, LinkedHashMap<String, Object> input) {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        ENTITY parsedInput = toENTITY(input);
+        performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, parsedInput);
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        try {
+            transaction.begin();
+            ENTITY entity = findById(id);
+            if (entity == null) {
+                CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
+            }
+            entity.rawCopy(parsedInput);
+            jpaContext.persist(entity);
+            jpaContext.flush(entity);
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
+            transaction.commit();
+            performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
+            return entity;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
+    public List<ENTITY> bulkMerge(List<LinkedHashMap<String, Object>> input) throws CustomException {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        List<ENTITY> parsedInputs = input.stream()
+                .map(this::toMergeENTITY)
+                .peek(e -> performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, e))
+                .collect(Collectors.toList());
+
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        try {
+            transaction.begin();
+            List<ENTITY> storedEntities = findAllByIds(parsedInputs.parallelStream().map(e -> e.id).collect(Collectors.toList()));
+
+            List<ENTITY> finalParsedInputs = parsedInputs;
+            long deletedEntities = jpaContext.delete(typeOfENTITY, "id in :ids", Map.of("ids", storedEntities.parallelStream().map(se -> se.id).filter(seid -> finalParsedInputs.parallelStream().noneMatch(pi -> Objects.equals(pi.id, seid))).collect(Collectors.toList())));
+
+            List<ENTITY> toSave = new ArrayList<>();
+            parsedInputs.stream()
+                .forEach(e -> {
+                    if(e.id != null){
+                        ENTITY stored = storedEntities.parallelStream()
+                                .filter(se -> Objects.equals(se.id, e.id))
+                                .findFirst()
+                                .get();
+                        stored.copy(e);
+                        toSave.add(stored);
+                    } else {
+                        toSave.add(e);
+                    }
+                });
+            List<ENTITY> finalToSave = toSave;
+
+            jpaContext.persist(finalToSave);
+            jpaContext.flush(finalToSave);
+            finalToSave = finalToSave.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            transaction.commit();
+            finalToSave = finalToSave.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            return finalToSave;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
     public boolean hardDelete(Long id) {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
@@ -318,6 +469,42 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         return false;
     }
 
+
+    public ENTITY findByCondition(String query, Map<String, Object> params) {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        ENTITY entity = (ENTITY) jpaContext.find(typeOfENTITY, query, params).firstResult();
+        performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
+        return entity;
+    }
+
+    public List<ENTITY> findAllByCondition(String query, Map<String, Object> params) {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        List<ENTITY> entities = (List<ENTITY>) jpaContext.find(typeOfENTITY, query, params).list();
+        performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entities);
+        return entities;
+    }
+
+    public long hardDeleteAllByCondition(String query, Map<String, Object> params) {
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        try {
+            transaction.begin();
+            long deletedEntities = jpaContext.delete(typeOfENTITY, query, params);
+            transaction.commit();
+            return deletedEntities;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return 0;
+    }
+
     public ENTITY findGeneralById(Long id) {
         JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
         ENTITY entity = (ENTITY) jpaContext.find(typeOfENTITY, "id = :id", Map.of("id", id)).firstResult();
@@ -330,6 +517,13 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         ENTITY entity =  (ENTITY) jpaContext.find(typeOfENTITY, "deleted = false and id = :id", Map.of("id", id)).firstResult();
         performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
         return entity;
+    }
+
+    public List<ENTITY> findAllByIds(List<Long> ids) {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        List<ENTITY> entities = (List<ENTITY>) jpaContext.find(typeOfENTITY, "deleted = false and id in :ids", Map.of("ids", ids)).list();
+        performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entities);
+        return entities;
     }
 
     public ENTITY findArchivedById(Long id) {
@@ -467,6 +661,50 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         return (int) Math.ceil(count == 0 ? 0 : count / size);
     }
 
+
+    public ENTITY toMergeENTITY(LinkedHashMap<String, Object> input) {
+        try {
+
+            log.debug("Operation [{}]: Parsing input : {}", Thread.currentThread().getThreadGroup().getName(), input);
+
+            String method = TransactionsEnvs.pullProp(TransactionsEnvs.HTTP_METHOD);
+            ENTITY res = typeOfENTITY.getDeclaredConstructor().newInstance();
+
+            for (Map.Entry<String, Field> fieldStruct : entityFields.entrySet()) {
+                Field f = fieldStruct.getValue();
+                if (f.getName().equals("id")
+                        || !f.isAnnotationPresent(IgnoreInput.class)
+                        || (f.getAnnotation(IgnoreInput.class).when().length > 0 &&
+                                !List.of(f.getAnnotation(IgnoreInput.class).when()).contains(method))) {
+
+                    AtomicReference<Object> value = new AtomicReference<>(input.get(fieldStruct.getKey()));
+                    if (f.isAnnotationPresent(BuildInput.class) || f.isAnnotationPresent(BuildInputs.class)) {
+                        Stream.of(f.getAnnotationsByType(BuildInput.class))
+                                .filter(bi -> bi.onMethods().length == 0 || List.of(bi.onMethods()).contains(method))
+                                .forEach(bi -> value.set(CDI.current().select(bi.value()).get().build(value.get())));
+                    }
+
+                    if (f.trySetAccessible()) {
+                        if (value.get() != null) {
+                            f.set(res, value.get());
+                        } else {
+                            log.warn("Operation [{}]: Field {} setted to null", Thread.currentThread().getThreadGroup().getName(), fieldStruct.getKey());
+                        }
+                    } else if(value.get() != null){
+                        CustomException.get(CustomException.ErrorCode.INTERNAL, "Cannot access field {}", f.getName()).boom();
+                    }
+                }
+            }
+
+            return res;
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                 NoSuchMethodException e) {
+            e.printStackTrace();
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
     public ENTITY toENTITY(LinkedHashMap<String, Object> input) {
         try {
 
@@ -513,10 +751,12 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
     public <R> void performMethodLogic(ExecutionPhase executionPhase, R entity) {
         RoutingContext ctx = TransactionsEnvs.pullProp(TransactionsEnvs.CONTEXT);
         String method = TransactionsEnvs.pullProp(TransactionsEnvs.HTTP_METHOD);
-        if (typeOfENTITY.isAnnotationPresent(CrudLogic.class) || typeOfENTITY.isAnnotationPresent(CrudLogics.class)) {
-            for(CrudLogic cl : typeOfENTITY.getAnnotationsByType(CrudLogic.class)){
-                if(executionPhase.equals(cl.executionPhase()) && (cl.onMethods().length == 0 || List.of(cl.onMethods()).contains(method))){
-                    CDI.current().select(cl.value()).get().supply(ctx, entity);
+        if(ctx != null) {
+            if (typeOfENTITY.isAnnotationPresent(CrudLogic.class) || typeOfENTITY.isAnnotationPresent(CrudLogics.class)) {
+                for (CrudLogic cl : typeOfENTITY.getAnnotationsByType(CrudLogic.class)) {
+                    if (executionPhase.equals(cl.executionPhase()) && (cl.onMethods().length == 0 || List.of(cl.onMethods()).contains(method))) {
+                        CDI.current().select(cl.value()).get().supply(ctx, entity);
+                    }
                 }
             }
         }
