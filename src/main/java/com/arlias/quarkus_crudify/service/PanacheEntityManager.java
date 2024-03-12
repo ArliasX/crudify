@@ -372,10 +372,6 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         try {
             transaction.begin();
             List<ENTITY> storedEntities = findAllByIds(parsedInputs.parallelStream().map(e -> e.id).collect(Collectors.toList()));
-
-            List<ENTITY> finalParsedInputs = parsedInputs;
-            long deletedEntities = jpaContext.delete(typeOfENTITY, "id in :ids", Map.of("ids", storedEntities.parallelStream().map(se -> se.id).filter(seid -> finalParsedInputs.parallelStream().noneMatch(pi -> Objects.equals(pi.id, seid))).collect(Collectors.toList())));
-
             List<ENTITY> toSave = new ArrayList<>();
             parsedInputs.stream()
                 .forEach(e -> {
