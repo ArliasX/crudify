@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.enterprise.inject.spi.CDI;
 import javax.persistence.Column;
+import javax.persistence.Enumerated;
 import javax.transaction.SystemException;
 import javax.transaction.UserTransaction;
 import javax.ws.rs.core.Response;
@@ -183,9 +184,66 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         return null;
     }
 
+    public List<ENTITY> saveAll(List<ENTITY> input) throws CustomException{
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        List<ENTITY> entities = input.stream()
+                .peek(e -> performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, e))
+                .collect(Collectors.toList());
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        try {
+            transaction.begin();
+            jpaContext.persist(entities);
+            jpaContext.flush(entities);
+            entities = entities.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            transaction.commit();
+            entities = entities.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            return entities;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
     public ENTITY save(LinkedHashMap<String, Object> input) throws CustomException{
         JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
         ENTITY entity = toENTITY(input);
+        performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, entity);
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        try {
+            transaction.begin();
+            jpaContext.persist(entity);
+            jpaContext.flush(entity);
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
+            transaction.commit();
+            performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
+            return entity;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
+
+    public ENTITY save(ENTITY entity) throws CustomException{
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
         performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, entity);
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
@@ -386,6 +444,56 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                         toSave.add(e);
                     }
                 });
+            List<ENTITY> finalToSave = toSave;
+
+            jpaContext.persist(finalToSave);
+            jpaContext.flush(finalToSave);
+            finalToSave = finalToSave.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            transaction.commit();
+            finalToSave = finalToSave.stream()
+                    .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
+                    .collect(Collectors.toList());
+            return finalToSave;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // do something on Tx failure
+            try {
+                transaction.rollback();
+            } catch (SystemException ex) {
+                ex.printStackTrace();
+            }
+            CustomException.get(CustomException.ErrorCode.INTERNAL, e).boom();
+        }
+        return null;
+    }
+
+
+    public List<ENTITY> merge(List<ENTITY> input) throws CustomException {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        List<ENTITY> parsedInputs = input.stream()
+                .peek(e -> performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, e))
+                .collect(Collectors.toList());
+
+        UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
+        try {
+            transaction.begin();
+            List<ENTITY> storedEntities = findAllByIds(parsedInputs.parallelStream().map(e -> e.id).collect(Collectors.toList()));
+            List<ENTITY> toSave = new ArrayList<>();
+            parsedInputs.stream()
+                    .forEach(e -> {
+                        if(e.id != null){
+                            ENTITY stored = storedEntities.parallelStream()
+                                    .filter(se -> Objects.equals(se.id, e.id))
+                                    .findFirst()
+                                    .get();
+                            stored.copy(e);
+                            toSave.add(stored);
+                        } else {
+                            toSave.add(e);
+                        }
+                    });
             List<ENTITY> finalToSave = toSave;
 
             jpaContext.persist(finalToSave);
@@ -681,8 +789,16 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                     }
 
                     if (f.trySetAccessible()) {
-                        if (value.get() != null) {
-                            f.set(res, value.get());
+                        Object valueData = value.get();
+                        if (valueData != null) {
+                            //This check is due to an IllegalArgumentException laucnhed on Long casting I don't know why
+                            if(f.getType().equals(Long.class) && !(valueData instanceof Long)){
+                                f.set(res, Long.valueOf(String.valueOf(valueData)));
+                            } else if(f.getType().isEnum()) {
+                                f.set(res, Enum.valueOf((Class<Enum>) f.getType(), String.valueOf(valueData)));
+                            } else {
+                                f.set(res, valueData);
+                            }
                         } else {
                             log.warn("Operation [{}]: Field {} setted to null", Thread.currentThread().getThreadGroup().getName(), fieldStruct.getKey());
                         }
@@ -723,8 +839,16 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                     }
 
                     if (f.trySetAccessible()) {
-                        if (value.get() != null) {
-                            f.set(res, value.get());
+                        Object valueData = value.get();
+                        if (valueData != null) {
+                            //This check is due to an IllegalArgumentException laucnhed on Long casting I don't know why
+                            if(f.getType().equals(Long.class) && !(valueData instanceof Long)){
+                                f.set(res, Long.valueOf(String.valueOf(valueData)));
+                            } else if(f.getType().isEnum()) {
+                                f.set(res, Enum.valueOf((Class<Enum>) f.getType(), String.valueOf(valueData)));
+                            } else {
+                                f.set(res, valueData);
+                            }
                         } else {
                             log.warn("Operation [{}]: Field {} setted to null", Thread.currentThread().getThreadGroup().getName(), fieldStruct.getKey());
                         }

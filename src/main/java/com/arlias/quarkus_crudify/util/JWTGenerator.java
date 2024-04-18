@@ -1,34 +1,40 @@
 package com.arlias.quarkus_crudify.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.Jwt;
-import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SecurityException;
 import io.jsonwebtoken.security.SignatureAlgorithm;
+import io.vertx.core.MultiMap;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.enterprise.context.ApplicationScoped;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @ApplicationScoped
+@Slf4j
 public class JWTGenerator {
 
     @ConfigProperty(name = "crudify.server.jwt.secret", defaultValue = "2e408df8-13a4-419b-813c-d2e326102dd7-2e408df8-13a4-419b-813c-d2e326102dd7-2e408df8-13a4-419b-813c-d2e326102dd7")
     String secret;
 
     public synchronized String getToken(Object data, String... excludedKeys) {
-        Date now = new Date();
+        LocalDateTime now = LocalDateTime.now();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
                 .subject("arliasjwt")
-                .issuedAt(Date.from(Instant.ofEpochSecond(now.getTime())))
-                .expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 1800000L)))
-                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS512);
+                .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
+                .expiration(Date.from(now.plus(30, ChronoUnit.MINUTES).atZone(ZoneId.systemDefault()).toInstant()))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)));
 
         LinkedHashMap<String, Object> dataParsed = new ObjectMapper().convertValue(data, LinkedHashMap.class);
 
@@ -40,24 +46,23 @@ public class JWTGenerator {
         return jwtBuilder.compact();
     }
 
-    public synchronized String getToken(Object data, Long expireAfter, String... excludedKeys) {
-        Date now = new Date();
+    public synchronized String getToken(Object data, Integer expireAfter, ChronoUnit timeUnit, String... excludedKeys) {
+        LocalDateTime now = LocalDateTime.now();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
                 .subject("arliasjwt")
-                .issuedAt(Date.from(Instant.ofEpochSecond(now.getTime())))
-                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS512);
+                .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)));
 
         if (expireAfter == null) {
-            jwtBuilder = jwtBuilder.expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 1800000L)));
+            jwtBuilder = jwtBuilder.expiration(Date.from(now.plus(30, ChronoUnit.MINUTES).atZone(ZoneId.systemDefault()).toInstant()));
         } else if (expireAfter == -1) {
-            jwtBuilder = jwtBuilder.expiration(Date.from(Instant.ofEpochSecond(now.getTime() + Long.MAX_VALUE)));
+            jwtBuilder = jwtBuilder.expiration(Date.from(now.plus(1, ChronoUnit.YEARS).atZone(ZoneId.systemDefault()).toInstant()));
         } else {
-            jwtBuilder = jwtBuilder.expiration(Date.from(Instant.ofEpochSecond(now.getTime() + expireAfter)));
+            jwtBuilder = jwtBuilder.expiration(Date.from(now.plus(expireAfter, timeUnit).atZone(ZoneId.systemDefault()).toInstant()));
         }
 
         LinkedHashMap<String, Object> dataParsed = new ObjectMapper().convertValue(data, LinkedHashMap.class);
-
         for (String key : dataParsed.keySet()) {
             if (!List.of(excludedKeys).contains(key))
                 jwtBuilder.claim(key, dataParsed.get(key));
@@ -68,13 +73,13 @@ public class JWTGenerator {
 
 
     public synchronized String getGuestToken() {
-        Date now = new Date();
+        LocalDateTime now = LocalDateTime.now();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
                 .subject("arliasjwt")
-                .issuedAt(Date.from(Instant.ofEpochSecond(now.getTime())))
-                .expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 31557600000L)))
-                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS512);
+                .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
+                .expiration(Date.from(now.plus(1, ChronoUnit.YEARS).atZone(ZoneId.systemDefault()).toInstant()))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)));
 
         jwtBuilder.claim("metaType", "Guest");
 
@@ -83,13 +88,13 @@ public class JWTGenerator {
 
 
     public synchronized String getGuestToken(Object data, String... excludedKeys) {
-        Date now = new Date();
+        LocalDateTime now = LocalDateTime.now();
         JwtBuilder jwtBuilder = Jwts.builder()
                 .issuer("ArliasCrudify")
                 .subject("arliasjwt")
-                .issuedAt(Date.from(Instant.ofEpochSecond(now.getTime())))
-                .expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 31557600000L)))
-                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS512);
+                .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
+                .expiration(Date.from(now.plus(1, ChronoUnit.YEARS).atZone(ZoneId.systemDefault()).toInstant()))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)));
 
         LinkedHashMap<String, Object> dataParsed = new ObjectMapper().convertValue(data, LinkedHashMap.class);
 
@@ -103,40 +108,56 @@ public class JWTGenerator {
 
 
     public synchronized String getSimpleToken() {
-        Date now = new Date();
-
+        LocalDateTime now = LocalDateTime.now();
         return Jwts.builder()
                 .issuer("ArliasCrudify")
                 .subject("msilverman")
-                .issuedAt(now)
-                .expiration(Date.from(Instant.ofEpochSecond(now.getTime() + 1800000L)))
-                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS512).compact();
+                .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
+                .expiration(Date.from(now.plus(1, ChronoUnit.YEARS).atZone(ZoneId.systemDefault()).toInstant()))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8))).compact();
     }
 
 
-    public synchronized Jwt decode(String key, String token) {
-        SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), Jwts.SIG.HS512.getId());
+    public synchronized Jwt decode(String token) {
         JwtParser jwtParser = Jwts.parser()
-                .verifyWith(secretKeySpec)
+                .verifyWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
                 .build();
         try {
             return jwtParser.parse(token);
-        } catch (Exception e) {
+        } catch (ExpiredJwtException | MalformedJwtException | SecurityException | IllegalArgumentException e) {
+            log.error("Token not valid", e);
             return null;
         }
     }
 
-    public synchronized boolean isValidToken(String key, String token) {
-        SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), Jwts.SIG.HS512.getId());
+    public synchronized Jws<Claims> decodeClaims(String token) {
         JwtParser jwtParser = Jwts.parser()
-                .verifyWith(secretKeySpec)
+                .verifyWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
                 .build();
         try {
-            jwtParser.parse(token);
-            return true;
-        } catch (Exception e) {
-            return false;
+            return jwtParser.parseSignedClaims(token);
+        } catch (ExpiredJwtException | MalformedJwtException | SecurityException | IllegalArgumentException e) {
+            log.error("Token not valid", e);
+            return null;
         }
+    }
+
+    public synchronized boolean isValidToken(String token) {
+        JwtParser jwtParser = Jwts.parser()
+                .verifyWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
+                .build();
+        try {
+            Jws<Claims> decodedToken = jwtParser.parseSignedClaims(token);
+            if (decodedToken != null) {
+                Long exp = decodedToken.getPayload().get("exp", Long.class);
+                if (exp > new Date().getTime()) {
+                    return true;
+                }
+            }
+        } catch (ExpiredJwtException | MalformedJwtException | SecurityException | IllegalArgumentException e) {
+            log.error("Token not valid", e);
+        }
+        return false;
     }
 
 }

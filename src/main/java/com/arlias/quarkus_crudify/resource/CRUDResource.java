@@ -86,9 +86,14 @@ public class CRUDResource {
                             .filter(n -> !List.of("search", "page", "size", "by", "desc", TransactionsEnvs.RESPONSE_FIELD).contains(n))
                             .map(n -> {
                                 String filterData = queryParams.get(n);
-                                String operation = String.valueOf(filterData.charAt(0));
-                                String filter = filterData.substring(2);
-                                return Map.entry(n, Tuple2.of(operation, filter));
+                                int opIndex = filterData.indexOf(" ");
+                                if(opIndex == -1){
+                                    return Map.entry(n, Tuple2.of("=", filterData));
+                                } else {
+                                    String operation = filterData.substring(0, opIndex);
+                                    String filter = filterData.substring(opIndex + 1);
+                                    return Map.entry(n, Tuple2.of(operation, filter));
+                                }
                             })
                             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -125,9 +130,14 @@ public class CRUDResource {
                             .filter(n -> !List.of("search", "page", "size", "by", "desc", TransactionsEnvs.RESPONSE_FIELD).contains(n))
                             .map(n -> {
                                 String filterData = queryParams.get(n);
-                                String operation = String.valueOf(filterData.charAt(0));
-                                String filter = filterData.substring(2);
-                                return Map.entry(n, Tuple2.of(operation, filter));
+                                int opIndex = filterData.indexOf(" ");
+                                if(opIndex == -1){
+                                    return Map.entry(n, Tuple2.of("=", filterData));
+                                } else {
+                                    String operation = filterData.substring(0, opIndex);
+                                    String filter = filterData.substring(opIndex + 1);
+                                    return Map.entry(n, Tuple2.of(operation, filter));
+                                }
                             })
                             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -149,7 +159,7 @@ public class CRUDResource {
     }
 
 
-    @Route(path = "generated/:entity/:id", produces = ReactiveRoutes.APPLICATION_JSON, methods = {Route.HttpMethod.GET, Route.HttpMethod.PUT})
+    @Route(path = "generated/:entity/:id", produces = ReactiveRoutes.APPLICATION_JSON, methods = {Route.HttpMethod.PUT, Route.HttpMethod.GET})
     public Uni<?> findSingleOrUpdateEndpoint(RoutingExchange ex, @Body LinkedHashMap<String, Object> data, @Param String entity, @Param Long id) throws JsonProcessingException {
 
         PanacheEntityManager manager = crudManager.loadManager(entity);
