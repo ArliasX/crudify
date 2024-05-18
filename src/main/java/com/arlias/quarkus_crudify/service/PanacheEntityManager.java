@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.enterprise.inject.spi.CDI;
 import javax.persistence.Column;
-import javax.persistence.Enumerated;
 import javax.transaction.SystemException;
 import javax.transaction.UserTransaction;
 import javax.ws.rs.core.Response;
@@ -49,6 +48,19 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                 .filter(df -> df.equals(field))
                 .map(sf -> " or " + sf + " " + operation + " :" + sf + " ")
                 .collect(Collectors.joining(" "));
+    }
+
+    private synchronized String parseFilters(String query, Map<String, Object> filterParams, Map<String, Tuple2<String, String>> filters){
+        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
+            if(filter.getValue().getItem1().equalsIgnoreCase("lowerlike")){
+                query = query.concat(" and lower(" + filter.getKey() + ") like :" + filter.getKey());
+                filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2().toLowerCase()));
+            } else {
+                query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
+                filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
+            }
+        }
+        return query;
     }
 
 
@@ -161,11 +173,11 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
-            jpaContext.persist(entities);
-            jpaContext.flush(entities);
             entities = entities.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
                     .collect(Collectors.toList());
+            jpaContext.persist(entities);
+            jpaContext.flush(entities);
             transaction.commit();
             entities = entities.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
@@ -192,11 +204,11 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
-            jpaContext.persist(entities);
-            jpaContext.flush(entities);
             entities = entities.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
                     .collect(Collectors.toList());
+            jpaContext.persist(entities);
+            jpaContext.flush(entities);
             transaction.commit();
             entities = entities.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
@@ -222,9 +234,9 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.persist(entity);
             jpaContext.flush(entity);
-            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             transaction.commit();
             performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
             return entity;
@@ -248,9 +260,9 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.persist(entity);
             jpaContext.flush(entity);
-            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             transaction.commit();
             performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
             return entity;
@@ -303,14 +315,14 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
-            ENTITY entity = findById(id);
+            ENTITY entity = findByIdNoLogic(id);
             if (entity == null) {
                 CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
             }
             entity.copy(parsedInput);
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.persist(entity);
             jpaContext.flush(entity);
-            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             transaction.commit();
             performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
             return entity;
@@ -334,14 +346,14 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
-            ENTITY entity = findById(id);
+            ENTITY entity = findByIdNoLogic(id);
             if (entity == null) {
                 CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
             }
             entity.copy(parsedInput);
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.persist(entity);
             jpaContext.flush(entity);
-            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             transaction.commit();
             performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
             return entity;
@@ -364,14 +376,14 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
-            ENTITY entity = findById(id);
+            ENTITY entity = findByIdNoLogic(id);
             if (entity == null) {
                 CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
             }
             entity.rawCopy(parsedInput);
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.persist(entity);
             jpaContext.flush(entity);
-            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             transaction.commit();
             performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
             return entity;
@@ -395,14 +407,14 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
             transaction.begin();
-            ENTITY entity = findById(id);
+            ENTITY entity = findByIdNoLogic(id);
             if (entity == null) {
                 CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
             }
             entity.rawCopy(parsedInput);
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.persist(entity);
             jpaContext.flush(entity);
-            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             transaction.commit();
             performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
             return entity;
@@ -445,12 +457,11 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                     }
                 });
             List<ENTITY> finalToSave = toSave;
-
-            jpaContext.persist(finalToSave);
-            jpaContext.flush(finalToSave);
             finalToSave = finalToSave.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
                     .collect(Collectors.toList());
+            jpaContext.persist(finalToSave);
+            jpaContext.flush(finalToSave);
             transaction.commit();
             finalToSave = finalToSave.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
@@ -495,12 +506,11 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                         }
                     });
             List<ENTITY> finalToSave = toSave;
-
-            jpaContext.persist(finalToSave);
-            jpaContext.flush(finalToSave);
             finalToSave = finalToSave.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.DURING_TRANSACTION, e))
                     .collect(Collectors.toList());
+            jpaContext.persist(finalToSave);
+            jpaContext.flush(finalToSave);
             transaction.commit();
             finalToSave = finalToSave.stream()
                     .peek(e -> performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, e))
@@ -550,7 +560,7 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
         try {
             transaction.begin();
-            ENTITY entity = findById(id);
+            ENTITY entity = findByIdNoLogic(id);
             if (entity == null) {
                 CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
             }
@@ -623,6 +633,12 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         return entity;
     }
 
+    public ENTITY findByIdNoLogic(Long id) {
+        JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
+        ENTITY entity =  (ENTITY) jpaContext.find(typeOfENTITY, "deleted = false and id = :id", Map.of("id", id)).firstResult();
+        return entity;
+    }
+
     public List<ENTITY> findAllByIds(List<Long> ids) {
         JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
         List<ENTITY> entities = (List<ENTITY>) jpaContext.find(typeOfENTITY, "deleted = false and id in :ids", Map.of("ids", ids)).list();
@@ -643,10 +659,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         List<ENTITY> result = (List<ENTITY>) jpaContext.find(typeOfENTITY, query, SortInput.getSortOrDefault(sort), filterParams).page(Page.of(page, size)).list();
         performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, result);
         return result;
@@ -658,10 +672,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         List<ENTITY> result = (List<ENTITY>) jpaContext.find(typeOfENTITY, query, SortInput.getSortOrDefault(sort), filterParams).page(Page.of(page, size)).list();
         performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, result);
         return result;
@@ -673,10 +685,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         List<ENTITY> result = (List<ENTITY>) jpaContext.find(typeOfENTITY, query, SortInput.getSortOrDefault(sort), filterParams).page(Page.of(page, size)).list();
         performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, result);
         return result;
@@ -688,10 +698,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         return jpaContext.count(typeOfENTITY, query, filterParams);
     }
 
@@ -701,10 +709,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         return jpaContext.count(typeOfENTITY, query, filterParams);
     }
 
@@ -714,10 +720,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         return jpaContext.count(typeOfENTITY, query, filterParams);
     }
 
@@ -728,10 +732,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         return getPagesCount(jpaContext.count(typeOfENTITY, query, filterParams), size);
     }
 
@@ -741,10 +743,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         return getPagesCount(jpaContext.count(typeOfENTITY, query, filterParams), size);
     }
 
@@ -754,10 +754,8 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         Map<String, Object> filterParams = new HashMap<>();
         filterParams.put("search", search.isBlank() ? "" : ("%" + search + "%"));
 
-        for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
-            query = query.concat(" and " + filter.getKey() + " " + filter.getValue().getItem1() + " :" + filter.getKey());
-            filterParams.put(filter.getKey(), getFilterParamParsed(filter.getKey(), filter.getValue().getItem2()));
-        }
+        query = parseFilters(query, filterParams, filters);
+
         return getPagesCount(jpaContext.count(typeOfENTITY, query, filterParams), size);
     }
 

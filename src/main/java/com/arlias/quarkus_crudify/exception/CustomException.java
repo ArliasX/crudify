@@ -1,5 +1,9 @@
 package com.arlias.quarkus_crudify.exception;
 
+import io.quarkus.vertx.web.RoutingExchange;
+import io.smallrye.mutiny.unchecked.Unchecked;
+import io.smallrye.mutiny.unchecked.UncheckedSupplier;
+import io.vertx.core.http.HttpServerResponse;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,10 +78,14 @@ public class CustomException extends RuntimeException implements Serializable {
         return new CustomException(errorCode, errorMessage, data);
     }
 
+    public String getShortMessage() {
+        String plainMessage = this.getMessage();
+        return plainMessage.substring(plainMessage.indexOf(":") + 1).trim();
+    }
 
     public String getParsedErrorMessage() {
-        String finalErrMessage = this.getMessage();
-        if (data != null && data.length > 0) {
+        String finalErrMessage = this.getShortMessage();
+        if (data != null) {
             for (Object d : data) {
                 try {
                     finalErrMessage = finalErrMessage.replaceFirst(Pattern.quote("{}"), ((d == null) ? "null" : Matcher.quoteReplacement(d.toString())));
@@ -95,6 +103,7 @@ public class CustomException extends RuntimeException implements Serializable {
 
     public enum ErrorCode {
 
+        FORBIDDEN(403),
         NOT_FOUND(404),
         UNVAILABLE(503),
         SQL(999),
@@ -113,6 +122,38 @@ public class CustomException extends RuntimeException implements Serializable {
 
     public static CustomException unimplemented() {
         return CustomException.get(ErrorCode.UNVAILABLE, "Unimplemented method or service invoked!");
+    }
+
+    public static <T> Object parseResponse(RoutingExchange ex, UncheckedSupplier<T> us){
+        try{
+            return us.get();
+        } catch (CustomException ce){
+            System.out.println("Custom exception returning: " + ce.getParsedErrorMessage());
+            ex.response().setStatusCode(ce.getErrorCode().code);
+            ex.response().setStatusMessage(ce.getErrorCode().toString());
+            return ce.getParsedErrorMessage();
+        } catch (Throwable t){
+            System.out.println("Throwable returning: " + t.getMessage());
+            ex.response().setStatusCode(ErrorCode.INTERNAL.code);
+            ex.response().setStatusMessage(ErrorCode.INTERNAL.name());
+            return t.getMessage();
+        }
+    }
+
+    public static <T> Object parseResponse(HttpServerResponse response, UncheckedSupplier<T> us){
+        try{
+            return us.get();
+        } catch (CustomException ce){
+            System.out.println("Catched custom exception returning error");
+            response.setStatusCode(ce.getErrorCode().code);
+            response.setStatusMessage(ce.getErrorCode().toString());
+            return ce.getParsedErrorMessage();
+        } catch (Throwable t){
+            System.out.println("Catched vanilla exception returning error");
+            response.setStatusCode(ErrorCode.INTERNAL.code);
+            response.setStatusMessage(ErrorCode.INTERNAL.name());
+            return t.getMessage();
+        }
     }
 
 }

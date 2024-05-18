@@ -1,10 +1,12 @@
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\util\JWTGenerator.java
+C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\util\CrudifyFramework.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\configuration\RegisterCustomModuleCustomizer.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\service\CRUDManager.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\service\TransactionsEnvs.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\input_builder\PasswordHashMD5Builder.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\input_builder\UUIDBuilder.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\util\DateConverter.java
+C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\input_builder\EmailFormatterAndValidatorBuilder.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\model\common\PanacheCustomEntity.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\service\common\FindAllSelectionType.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\util\NullAwareBeanUtilsBean.java
@@ -15,6 +17,7 @@ C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\exc
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\util\Utils.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\util\SortInput.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\enums\ExecutionPhase.java
+C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\input_builder\InputTrimmerBuilder.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\util\annotations\IgnoreInput.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\configuration\ArliasThreadFactory.java
 C:\Repo\PersonalProjects\LibCrudify\src\main\java\com\arlias\quarkus_crudify\service\common\CRUDEntity.java

@@ -3,6 +3,7 @@ com\arlias\quarkus_crudify\input_builder\PasswordHashMD5Builder.class
 com\arlias\quarkus_crudify\service\CRUDManager.class
 com\arlias\quarkus_crudify\input_builder\common\LogicSupplier.class
 com\arlias\quarkus_crudify\util\annotations\BuildInputs.class
+com\arlias\quarkus_crudify\input_builder\EmailFormatterAndValidatorBuilder.class
 com\arlias\quarkus_crudify\util\NullFillerBeanUtilsBean.class
 com\arlias\quarkus_crudify\configuration\ArliasThreadFactory.class
 com\arlias\quarkus_crudify\service\PanacheEntityManager.class
@@ -10,6 +11,7 @@ com\arlias\quarkus_crudify\util\annotations\CrudLogics.class
 com\arlias\quarkus_crudify\resource\CRUDResource$1.class
 com\arlias\quarkus_crudify\util\annotations\BuildInput.class
 com\arlias\quarkus_crudify\resource\CRUDResource.class
+com\arlias\quarkus_crudify\util\CrudifyFramework.class
 META-INF\panache-archive.marker
 com\arlias\quarkus_crudify\util\JWTGenerator.class
 com\arlias\quarkus_crudify\util\DateConverter.class
@@ -29,7 +31,9 @@ com\arlias\quarkus_crudify\configuration\SerializationPanacheEntityModule.class
 com\arlias\quarkus_crudify\enums\ExecutionPhase.class
 com\arlias\quarkus_crudify\util\annotations\IgnoreInput.class
 com\arlias\quarkus_crudify\model\common\PanacheCustomEntity.class
+com\arlias\quarkus_crudify\input_builder\InputTrimmerBuilder.class
 com\arlias\quarkus_crudify\util\Utils.class
 com\arlias\quarkus_crudify\input_builder\BooleanConstantFalseBuilder.class
 com\arlias\quarkus_crudify\util\SortInput.class
+com\arlias\quarkus_crudify\util\CrudifyFramework$Producer.class
 com\arlias\quarkus_crudify\util\annotations\CrudLogic.class
