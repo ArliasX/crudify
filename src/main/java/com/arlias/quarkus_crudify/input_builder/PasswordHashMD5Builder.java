@@ -6,6 +6,7 @@ import com.arlias.quarkus_crudify.input_builder.common.InputBuilder;
 import io.quarkus.arc.Unremovable;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -21,8 +22,7 @@ public class PasswordHashMD5Builder implements InputBuilder<String, String> {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] messageDigest = md.digest(s.getBytes());
-            BigInteger number = new BigInteger(1, messageDigest);
-            return number.toString(16);
+            return new HexBinaryAdapter().marshal(messageDigest).toLowerCase();
         } catch (Exception e) {
             CustomException.get(CustomException.ErrorCode.BAD_REQUEST, e).boom();
             return null;

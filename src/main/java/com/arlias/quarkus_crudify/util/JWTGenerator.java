@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -159,6 +160,41 @@ public class JWTGenerator {
                 .build();
         try {
             return jwtParser.parseEncryptedClaims(token);
+        } catch (ExpiredJwtException | MalformedJwtException | SecurityException | IllegalArgumentException e) {
+            log.error("Token not valid", e);
+            return null;
+        }
+    }
+
+    public synchronized HashMap<String, Object> decodeClaimsToMap(String token) {
+        JwtParser jwtParser = Jwts.parser()
+                .decryptWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
+                .build();
+        try {
+            Jwe<Claims> decodedToken = jwtParser.parseEncryptedClaims(token);
+            HashMap<String, Object> data = new HashMap<>();
+            for(String key : decodedToken.getPayload().keySet()){
+                data.put(key, decodedToken.getPayload().get(key));
+            }
+            return data;
+        } catch (ExpiredJwtException | MalformedJwtException | SecurityException | IllegalArgumentException e) {
+            log.error("Token not valid", e);
+            return null;
+        }
+    }
+
+    public synchronized HashMap<String, Object> decodeClaimsToMapWithToken(String token) {
+        JwtParser jwtParser = Jwts.parser()
+                .decryptWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
+                .build();
+        try {
+            Jwe<Claims> decodedToken = jwtParser.parseEncryptedClaims(token);
+            HashMap<String, Object> data = new HashMap<>();
+            for(String key : decodedToken.getPayload().keySet()){
+                data.put(key, decodedToken.getPayload().get(key));
+            }
+            data.put("token", token);
+            return data;
         } catch (ExpiredJwtException | MalformedJwtException | SecurityException | IllegalArgumentException e) {
             log.error("Token not valid", e);
             return null;
