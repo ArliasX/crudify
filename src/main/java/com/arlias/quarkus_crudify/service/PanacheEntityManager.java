@@ -50,7 +50,7 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                 .collect(Collectors.joining(" "));
     }
 
-    private synchronized String parseFilters(String query, Map<String, Object> filterParams, Map<String, Tuple2<String, String>> filters){
+     public synchronized String parseFilters(String query, Map<String, Object> filterParams, Map<String, Tuple2<String, String>> filters){
         for (Map.Entry<String, Tuple2<String, String>> filter : filters.entrySet()) {
             if(filter.getValue().getItem1().equalsIgnoreCase("lowerlike")){
                 query = query.concat(" and lower(" + filter.getKey() + ") like :" + filter.getKey());
@@ -759,7 +759,7 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
         return getPagesCount(jpaContext.count(typeOfENTITY, query, filterParams), size);
     }
 
-    private int getPagesCount(long count, double size) {
+    public int getPagesCount(long count, double size) {
         return (int) Math.ceil(count == 0 ? 0 : count / size);
     }
 
