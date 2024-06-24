@@ -1,5 +1,6 @@
 package com.arlias.quarkus_crudify.resource;
 
+import com.arlias.quarkus_crudify.enums.ExecutionPhase;
 import com.arlias.quarkus_crudify.exception.CustomException;
 import com.arlias.quarkus_crudify.model.common.PanacheCustomEntity;
 import com.arlias.quarkus_crudify.service.CRUDManager;
@@ -205,8 +206,12 @@ public class CRUDResource {
             boolean hard = ex.getParam("hard").map(Boolean::parseBoolean).orElse(false);
             PanacheEntityManager manager = crudManager.loadManager(entity);
             if (hard) {
-                return manager.performCrudAndBuildObjectResponse(() -> manager.hardDelete(id));
+                return manager.performCrudAndBuildObjectResponse(() -> {
+                    manager.performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, manager.findById(id));
+                    return manager.hardDelete(id);
+                });
             } else {
+                manager.performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, manager.findById(id));
                 return manager.performCrudAndBuildObjectResponse(() -> manager.softDelete(id));
             }
         });

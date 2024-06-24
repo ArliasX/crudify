@@ -342,6 +342,7 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
     public ENTITY update(Long id, LinkedHashMap<String, Object> input) {
         JpaOperations jpaContext = TransactionsEnvs.pullProp(TransactionsEnvs.JPA_CONTEXT);
         ENTITY parsedInput = toENTITY(input);
+        parsedInput.id = id;
         performMethodLogic(ExecutionPhase.BEFORE_TRANSACTION, parsedInput);
         UserTransaction transaction = CDI.current().select(UserTransaction.class).get();
         try {
@@ -538,9 +539,10 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
             if (entity == null) {
                 CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
             }
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.delete(entity);
+            jpaContext.flush();
             transaction.commit();
-            performMethodLogic(ExecutionPhase.AFTER_TRANSACTION, entity);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -565,6 +567,7 @@ public class PanacheEntityManager<ENTITY extends PanacheCustomEntity> {
                 CustomException.get(CustomException.ErrorCode.NOT_FOUND, "Entity {} with id {} is not present in the database", typeOfENTITY.getSimpleName(), id).boom();
             }
             entity.deleted = true;
+            performMethodLogic(ExecutionPhase.DURING_TRANSACTION, entity);
             jpaContext.persist(entity);
             jpaContext.flush(entity);
             transaction.commit();

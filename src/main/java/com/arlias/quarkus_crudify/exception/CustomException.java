@@ -128,12 +128,10 @@ public class CustomException extends RuntimeException implements Serializable {
         try{
             return us.get();
         } catch (CustomException ce){
-            System.out.println("Custom exception returning: " + ce.getParsedErrorMessage());
             ex.response().setStatusCode(ce.getErrorCode().code);
             ex.response().setStatusMessage(ce.getErrorCode().toString());
             return ce.getParsedErrorMessage();
         } catch (Throwable t){
-            System.out.println("Throwable returning: " + t.getMessage());
             ex.response().setStatusCode(ErrorCode.INTERNAL.code);
             ex.response().setStatusMessage(ErrorCode.INTERNAL.name());
             return t.getMessage();
@@ -144,7 +142,6 @@ public class CustomException extends RuntimeException implements Serializable {
         try{
             return us.get();
         } catch (CustomException ce){
-            System.out.println("Catched custom exception returning error");
             response.setStatusCode(ce.getErrorCode().code);
             response.setStatusMessage(ce.getErrorCode().toString());
             return ce.getParsedErrorMessage();
